@@ -1,7 +1,10 @@
+from argparse import ArgumentParser
 from collections import namedtuple
 
 import numpy as np
 import numpy.random as npr
+
+import matplotlib.pyplot as plt
 
 from impute import Dataset
 from impute import SoftImpute
@@ -101,18 +104,8 @@ def run_single(seed, config, sizes, alphas, n_fold, fout=None):
     return {name: np.array(perf) for name, perf in stats.items()}
 
 
-def __main__(fout):
-    config = Config(
-        n_row=100,
-        n_col=100,
-        rank=3,
-        sd=1.0
-    )
-    n_fold = 10
-    step = 100
-    n_sample = 1000
-
-    sizes = list([i + step for i in range(0, n_sample, step)])
+def run_all(config, step, max_size, n_fold, fout):
+    sizes = [i + step for i in range(0, max_size, step)]
 
     print('generating the sequence of alphas...')
     alphas = [compute_op_norm_thresh(config, size, level=0.9, repetition=10) for size in sizes]
@@ -132,11 +125,39 @@ def __main__(fout):
             aggs[name][2] += perf ** 2
 
 
+def __main__():
+    parser = ArgumentParser()
+    parser.add_argument('--seed', type=int, default=1)
+    parser.add_argument('--mnr', nargs='+', type=int, default=(100, 100, 3))
+    parser.add_argument('--sd', type=float, default=1.)
+    parser.add_argument('--run', type=int, default=10)
+    parser.add_argument('--n_fold', type=int, default=10)
+    parser.add_argument('--max_size', type=int, default=2000)
+    parser.add_argument('--step', type=int, default=100)
+    parser.add_argument('--name', type=str, default='test')
+
+    args = parser.parse_args()
+
+    config = Config(
+        n_row=args.mnr[0],
+        n_col=args.mnr[1],
+        rank=args.mnr[2],
+        sd=args.sd
+    )
+
+    if args.name is not None:
+        with open(f'outputs/{args.name}.csv', 'w') as fout:
+            header = ','.join(['seed', 'name', 'n_sample', 'error'])
+            fout.write(header)
+
+            run_all(config, args.step, args.max_size, args.n_fold, fout)
+
+            plt.savefig(f'plots/{args.name}.pdf')
+    else:
+        run_all(config, args.step, args.max_size, args.n_fold, None)
+
+        plt.show()
+
+
 if __name__ == '__main__':
-    out = 'stats.csv'
-    with open(out, 'w') as fout:
-
-        header = ','.join(['seed', 'name', 'n_sample', 'error'])
-        fout.write(header)
-
-        __main__(fout)
+    __main__()
