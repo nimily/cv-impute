@@ -45,19 +45,20 @@ def run_single(seed, config, sizes, alphas, n_fold, fout=None):
 
     ground_truth = Dataset(LinOp(shape), [])
     ground_truth.extend(
-        xs=np.ndindex(shape + (1,)),
-        ys=b.flat
+        xs=list(np.ndindex(shape + (1,))),
+        ys=b.flatten()
     )
 
     max_size = max(sizes)
-    rs = npr.randint(config.n_row, size=max_size)
-    cs = npr.randint(config.n_col, size=max_size)
-    vs = np.ones(max_size, dtype=np.int)
+    obs = npr.choice(config.n_row * config.n_col, (max_size, ), replace=False)
+    rs = obs % config.n_col
+    cs = obs // config.n_col
+    vs = np.ones_like(rs)
     xs = np.hstack([
         rs[:, np.newaxis],
         cs[:, np.newaxis],
         vs[:, np.newaxis]
-    ]).tolist()
+    ])
     ys = b[rs, cs] + npr.randn(max_size) * config.sd
 
     names = ['cv', 'oracle', 'regular']
@@ -99,7 +100,7 @@ def run_single(seed, config, sizes, alphas, n_fold, fout=None):
         # appending to the output file (if given)
         if fout is not None:
             for name, errors in stats.items():
-                fout.write(f'{seed},{name},{size},{errors[-1]}')
+                print(f'{seed},{name},{size},{errors[-1]}', file=fout, flush=True)
 
     return {name: np.array(perf) for name, perf in stats.items()}
 
@@ -114,7 +115,7 @@ def run_all(config, step, max_size, n_fold, fout):
     aggs = {}
 
     for seed in range(10):
-        stats = run_single(seed, config, sizes, alphas, n_fold, fout)
+        stats = run_single(0, config, sizes, alphas, n_fold, fout)
 
         for name, perf in stats.items():
             if name not in aggs:
@@ -134,7 +135,7 @@ def __main__():
     parser.add_argument('--n_fold', type=int, default=10)
     parser.add_argument('--max_size', type=int, default=2000)
     parser.add_argument('--step', type=int, default=100)
-    parser.add_argument('--name', type=str, default='test')
+    parser.add_argument('--name', type=str, default=None)
 
     args = parser.parse_args()
 
@@ -148,7 +149,7 @@ def __main__():
     if args.name is not None:
         with open(f'outputs/{args.name}.csv', 'w') as fout:
             header = ','.join(['seed', 'name', 'n_sample', 'error'])
-            fout.write(header)
+            print(header, file=fout, flush=True)
 
             run_all(config, args.step, args.max_size, args.n_fold, fout)
 
