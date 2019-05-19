@@ -135,13 +135,8 @@ def cv_impute(probs, n_alpha=100, alpha_min_ratio=0.01, alphas=None, verbose=1):
     return est, alphas[opt], sols
 
 
-def oracle_impute(prob, n_alpha=100, alpha_min_ratio=0.01, alphas=None):
-    # compute alpha sequence if not provided
-    if not alphas:
-        alpha_max = prob.alpha_max()
-        alpha_min = alpha_max * alpha_min_ratio
-
-        alphas = np.geomspace(alpha_max, alpha_min, n_alpha)
+def oracle_impute(prob, alpha):
+    alphas = prob.get_alpha_seq(alpha)
 
     # computing the test error for each fitted matrix
     sol = prob.fit_and_eval(alphas)

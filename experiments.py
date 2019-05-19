@@ -97,7 +97,7 @@ def run_single(seed, config, sizes, alphas, n_fold, fout=None):
         prob = init_problem(shape, test=ground_truth)
         prob.train.extend(xss, yss)
 
-        bh, *_ = oracle_impute(prob)
+        bh, *_ = oracle_impute(prob, alphas[i] / 2)
         error = relative_error(b, bh)
         stats['oracle'].append(error)
         print(f'oracle relative error = {error}')
