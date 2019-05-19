@@ -34,6 +34,23 @@ def init_problem(shape, train=None, test=None):
     return Problem(imputer, train, test)
 
 
+def int_array_to_entries(n_col, arr):
+    rs = arr % n_col
+    cs = arr // n_col
+    vs = np.ones_like(rs)
+    return np.hstack([
+        rs[:, np.newaxis],
+        cs[:, np.newaxis],
+        vs[:, np.newaxis]
+    ])
+
+
+def get_noisy_obs(b, xs, sd):
+    rs = xs[:, 0]
+    cs = xs[:, 1]
+    return b[rs, cs] + npr.randn(xs.shape[0]) * sd
+
+
 def run_single(seed, config, sizes, alphas, n_fold, fout=None):
     npr.seed(seed)
 
@@ -43,23 +60,20 @@ def run_single(seed, config, sizes, alphas, n_fold, fout=None):
     br = npr.randn(config.n_col, config.rank)
     b = bl @ br.T
 
+    entries = np.arange(b.size)
+    xs = int_array_to_entries(config.n_col, entries)
+    ys = get_noisy_obs(b, xs, config.sd)
+
     ground_truth = Dataset(LinOp(shape), [])
     ground_truth.extend(
-        xs=list(np.ndindex(shape + (1,))),
-        ys=b.flatten()
+        xs=xs.tolist(),
+        ys=ys.tolist()
     )
 
     max_size = max(sizes)
-    obs = npr.choice(config.n_row * config.n_col, (max_size, ), replace=False)
-    rs = obs % config.n_col
-    cs = obs // config.n_col
-    vs = np.ones_like(rs)
-    xs = np.hstack([
-        rs[:, np.newaxis],
-        cs[:, np.newaxis],
-        vs[:, np.newaxis]
-    ])
-    ys = b[rs, cs] + npr.randn(max_size) * config.sd
+    entries = npr.choice(b.size, (max_size,), replace=False)
+    xs = int_array_to_entries(config.n_col, entries)
+    ys = get_noisy_obs(b, xs, config.sd)
 
     names = ['cv', 'oracle', 'regular']
     stats = {name: [] for name in names}
@@ -133,7 +147,6 @@ def run_all(seed, n_run, config, step, max_size, n_fold, fout):
 
         plt.fill_between(x, y - sd, y + sd, alpha=0.2)
         plt.plot(x, y, label=name)
-
 
 
 def __main__():

@@ -100,7 +100,6 @@ def split_and_add_to_subproblems(probs, xs, ys, foldids=None, shuffle=True):
     add_to_subproblems(probs, folds)
 
 
-# cross-validation helper
 def cv_impute(probs, n_alpha=100, alpha_min_ratio=0.01, alphas=None, verbose=1):
     # compute alpha sequence if not provided
     if not alphas:
@@ -136,7 +135,6 @@ def cv_impute(probs, n_alpha=100, alpha_min_ratio=0.01, alphas=None, verbose=1):
     return est, alphas[opt], sols
 
 
-# cross-validation helper
 def oracle_impute(prob, n_alpha=100, alpha_min_ratio=0.01, alphas=None):
     # compute alpha sequence if not provided
     if not alphas:
@@ -154,7 +152,6 @@ def oracle_impute(prob, n_alpha=100, alpha_min_ratio=0.01, alphas=None):
     return est, alphas[opt], sol
 
 
-# cross-validation helper
 def regular_impute(prob, alpha: float):
     alphas = prob.get_alpha_seq(alpha)
 
