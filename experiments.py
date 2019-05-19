@@ -105,7 +105,7 @@ def run_single(seed, config, sizes, alphas, n_fold, fout=None):
     return {name: np.array(perf) for name, perf in stats.items()}
 
 
-def run_all(config, step, max_size, n_fold, fout):
+def run_all(seed, n_run, config, step, max_size, n_fold, fout):
     sizes = [i + step for i in range(0, max_size, step)]
 
     print('generating the sequence of alphas...')
@@ -114,8 +114,8 @@ def run_all(config, step, max_size, n_fold, fout):
     # aggregating the stats
     aggs = {}
 
-    for seed in range(10):
-        stats = run_single(0, config, sizes, alphas, n_fold, fout)
+    for run in range(n_run):
+        stats = run_single(seed + run, config, sizes, alphas, n_fold, fout)
 
         for name, perf in stats.items():
             if name not in aggs:
@@ -151,11 +151,11 @@ def __main__():
             header = ','.join(['seed', 'name', 'n_sample', 'error'])
             print(header, file=fout, flush=True)
 
-            run_all(config, args.step, args.max_size, args.n_fold, fout)
+            run_all(args.seed, args.run, config, args.step, args.max_size, args.n_fold, fout)
 
             plt.savefig(f'plots/{args.name}.pdf')
     else:
-        run_all(config, args.step, args.max_size, args.n_fold, None)
+        run_all(args.seed, args.run, config, args.step, args.max_size, args.n_fold, None)
 
         plt.show()
 
