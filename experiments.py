@@ -67,8 +67,8 @@ def run_single(seed, config, sizes, alphas, n_fold, fout=None):
     for i, size in enumerate(sizes):
         print(f'round {i} with size {size} has started...')
 
-        xss = xs[:size]
-        yss = ys[:size]
+        xss = xs[:size].tolist()
+        yss = ys[:size].tolist()
 
         # cross-validation
         probs = [init_problem(shape) for _ in range(n_fold)]
@@ -119,11 +119,21 @@ def run_all(seed, n_run, config, step, max_size, n_fold, fout):
 
         for name, perf in stats.items():
             if name not in aggs:
-                aggs[name] = [np.zeros_like(sizes, dtype=np.float64) for _ in range(3)]
+                aggs[name] = [0] * 3
 
             aggs[name][0] += 1
             aggs[name][1] += perf
             aggs[name][2] += perf ** 2
+
+    for name, (m0, m1, m2) in aggs.items():
+        x = sizes
+        y = m1 / m0
+        var = (m2 - m1 ** 2 / m0) / (m0 - 1)
+        sd = var ** 0.5
+
+        plt.fill_between(x, y - sd, y + sd, alpha=0.2)
+        plt.plot(x, y, label=name)
+
 
 
 def __main__():
@@ -132,8 +142,8 @@ def __main__():
     parser.add_argument('--mnr', nargs='+', type=int, default=(100, 100, 3))
     parser.add_argument('--sd', type=float, default=1.)
     parser.add_argument('--run', type=int, default=10)
-    parser.add_argument('--n_fold', type=int, default=10)
-    parser.add_argument('--max_size', type=int, default=2000)
+    parser.add_argument('--n-fold', type=int, default=10)
+    parser.add_argument('--max-size', type=int, default=2000)
     parser.add_argument('--step', type=int, default=100)
     parser.add_argument('--name', type=str, default=None)
 
@@ -153,10 +163,12 @@ def __main__():
 
             run_all(args.seed, args.run, config, args.step, args.max_size, args.n_fold, fout)
 
+            plt.legend()
             plt.savefig(f'plots/{args.name}.pdf')
     else:
         run_all(args.seed, args.run, config, args.step, args.max_size, args.n_fold, None)
 
+        plt.legend()
         plt.show()
 
 
