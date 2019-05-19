@@ -2,16 +2,15 @@ from typing import List, NamedTuple
 
 import numpy as np
 import numpy.random as npr
+import numpy.linalg as npl
 
-from impute.utils import SVD
-
+from impute import SVD
 from impute import Dataset
 from impute import LagrangianImpute
 
 
 # container classes
-class CvProblem(NamedTuple):
-
+class Problem(NamedTuple):
     imputer: LagrangianImpute
     train: Dataset
     test: Dataset
@@ -28,15 +27,25 @@ class CvProblem(NamedTuple):
 
         return self.eval_prediction(yh)
 
-    def fit_and_eval(self, alphas):
-        svds = self.fit(alphas)
+    def eval(self, svds):
         mats = [svd.to_matrix() for svd in svds]
         errs = np.array([self.eval_estimate(mat) for mat in mats])
 
-        return CvSolution(svds, mats, errs)
+        return Solution(svds, mats, errs)
+
+    def fit_and_eval(self, alphas):
+        svds = self.fit(alphas)
+
+        return self.eval(svds)
+
+    def alpha_max(self):
+        return self.imputer.alpha_max(self.train)
+
+    def get_alpha_seq(self, alpha: float, eta: float = 0.5):
+        return self.imputer.get_alpha_seq(self.train, alpha_min=alpha, eta=eta)
 
 
-class CvSolution(NamedTuple):
+class Solution(NamedTuple):
     svds: List[SVD]
     mats: List[np.ndarray]
     errs: np.ndarray
@@ -93,12 +102,9 @@ def split_and_add_to_subproblems(probs, xs, ys, foldids=None, shuffle=True):
 
 # cross-validation helper
 def cv_impute(probs, n_alpha=100, alpha_min_ratio=0.01, alphas=None, verbose=1):
-
     # compute alpha sequence if not provided
     if not alphas:
-        alpha_maxs = [imputer.alpha_max(train) for imputer, train, _ in probs]
-
-        alpha_max = max(alpha_maxs)
+        alpha_max = max(prob.alpha_max() for prob in probs)
         alpha_min = alpha_max * alpha_min_ratio
 
         alphas = np.geomspace(alpha_max, alpha_min, n_alpha)
@@ -116,9 +122,9 @@ def cv_impute(probs, n_alpha=100, alpha_min_ratio=0.01, alphas=None, verbose=1):
             print(f'optimum[{i}] = {np.argmin(sol.errs)}')
 
     # computing the total performance of each alpha
-    total = sum(sol.errs for sol in sols)
+    errors = sum(sol.errs for sol in sols)
 
-    opt = np.argmin(total).item()
+    opt = np.argmin(errors).item()
     est = sum(sol.mats[opt] for sol in sols) / len(sols)
 
     if verbose:
@@ -130,6 +136,55 @@ def cv_impute(probs, n_alpha=100, alpha_min_ratio=0.01, alphas=None, verbose=1):
     return est, alphas[opt], sols
 
 
+# cross-validation helper
+def oracle_impute(prob, n_alpha=100, alpha_min_ratio=0.01, alphas=None):
+    # compute alpha sequence if not provided
+    if not alphas:
+        alpha_max = prob.alpha_max()
+        alpha_min = alpha_max * alpha_min_ratio
+
+        alphas = np.geomspace(alpha_max, alpha_min, n_alpha)
+
+    # computing the test error for each fitted matrix
+    sol = prob.fit_and_eval(alphas)
+
+    opt = np.argmin(sol.errs).item()
+    est = sol.mats[opt]
+
+    return est, alphas[opt], sol
+
+
+# cross-validation helper
+def regular_impute(prob, alpha: float):
+    alphas = prob.get_alpha_seq(alpha)
+
+    # computing the test error for each fitted matrix
+    svd = prob.fit(alphas)[-1]
+    est = svd.to_matrix()
+
+    return est, alpha
+
+
 # miscellaneous
 def subarray(arr, ind):
     return [arr[i] for i in ind]
+
+
+def compute_op_norm_thresh(config, n_sample, level, repetition):
+    norms = []
+
+    for _ in range(repetition):
+        rs = npr.randint(config.n_row, size=n_sample)
+        cs = npr.randint(config.n_col, size=n_sample)
+        ys = npr.randn(n_sample) * config.sd
+
+        e = np.zeros((config.n_row, config.n_col))
+        np.add.at(e, (rs, cs), ys)
+
+        norms.append(npl.norm(e, 2))
+
+    norms.sort()
+    index = int(level * (repetition - 1))
+
+    return norms[index]
+
