@@ -19,6 +19,9 @@ from utils import relative_error
 from utils import compute_op_norm_thresh
 from utils import split_and_add_to_subproblems
 
+from utils import plot_data
+from utils import moments_to_confidence_band
+
 Config = namedtuple('Config', 'n_row, n_col, rank, sd')
 
 
@@ -139,14 +142,14 @@ def run_all(seed, n_run, config, step, max_size, n_fold, fout):
             aggs[name][1] += perf
             aggs[name][2] += perf ** 2
 
-    for name, (m0, m1, m2) in aggs.items():
-        x = sizes
-        y = m1 / m0
-        var = (m2 - m1 ** 2 / m0) / (m0 - 1)
-        sd = var ** 0.5
+    data = {}
+    for name, ms in aggs.items():
+        xs = sizes
+        ys, ss = moments_to_confidence_band(*ms)
 
-        plt.fill_between(x, y - sd, y + sd, alpha=0.2)
-        plt.plot(x, y, label=name)
+        data[name] = (xs, ys, ss)
+
+    plot_data(data, plt)
 
 
 def __main__():
@@ -176,7 +179,6 @@ def __main__():
 
             run_all(args.seed, args.run, config, args.step, args.max_size, args.n_fold, fout)
 
-            plt.legend()
             plt.savefig(f'plots/{args.name}.pdf')
     else:
         run_all(args.seed, args.run, config, args.step, args.max_size, args.n_fold, None)

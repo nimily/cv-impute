@@ -180,3 +180,20 @@ def compute_op_norm_thresh(config, n_sample, level, repetition):
 
     return norms[index]
 
+
+def moments_to_confidence_band(m0, m1, m2):
+    ys = m1 / m0
+    vs = (m2 - m1 ** 2 / m0) / (m0 - 1)
+    ss = vs ** 0.5
+
+    return ys, ss
+
+
+def plot_data(data, plt, alpha=0.2):
+    for name, (xs, ys, ss) in data.items():
+        plt.fill_between(xs, ys - ss, ys + ss, alpha=alpha)
+        plt.plot(xs, ys, label=name)
+
+    plt.xlabel('number of samples')
+    plt.ylabel('relative error')
+    plt.legend()
